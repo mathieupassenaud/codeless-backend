@@ -1,0 +1,52 @@
+# docker-compose.yml
+
+version: '3'
+services:
+  server:
+    image: postgrest/postgrest
+    ports:
+      - "3000:3000"
+    links:
+      - db:db
+    environment:
+      PGRST_DB_URI: postgres://postgres:password@db:5432/example
+      PGRST_DB_SCHEMA: api
+      PGRST_SERVER_PROXY_URI: "http://127.0.0.1:3000/"
+      PGRST_DB_ANON_ROLE: web_anon #In production this role should not be the same as the one used for the connection
+      PGRST_JWT_SECRET: '{"kty":"RSA","e":"AQAB","kid":"442d692e-cec3-4917-8164-e97ce25a8e7a","n":"--------------------i_H-UpilX9PVGLG54TP0NaMMgL4u6wpjI7CPVnowmMO0VvNlZLi9WJBGDj7zY_olMcYwubvb6rWBQ1DDnlnHa4g79_C4CVftUXrAHOhi4TrbjtiSX0f39f6WazfB__L8DtwDc2g5lCLazgXZl2oXn4PV1TmxsV9bKI391T_EbQpE2G-M9nM8mqH5Qj1F2GK5xX2S-_8zY11de2mekqRLfGzU3advbIJrj1ZiCWPC7WKI4MTEpcrki9m929ZbHRoKvDv2BQrq1DM3Ryj6YLgETtwxqmdTgyOOHG_8qmK0Nc9zDmLQ"}'
+      PGRST_ROLE_CLAIM_KEY: '.resource_access.frontend.roles[0]'
+    depends_on:
+      - db
+  swagger:
+    image: swaggerapi/swagger-ui
+    ports:
+      - "8081:8080"
+    expose:
+      - "8081"
+    environment:
+      API_URL: http://localhost:3000/
+  db:
+    image: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: password
+  proxy:
+    image: registry.please-open.it/misc/nginx-oauth:latest
+    ports:
+      - "8000:80"
+    links:
+      - server:server
+    environment:
+      OID_SESSION_SECRET: secret
+      OID_SESSION_CHECK_SSI: "off"
+      OID_SESSION_NAME: session
+      SERVER: app.please-open.it/auth/realms/-----------
+      INUM: frontend
+      SECRET: ----------------------------------
+      APP: http://server:3000
+    depends_on:
+      - server
+  # Uncomment this if you want to persist the data.
+  # volumes:
+  #   - "./pgdata:/var/lib/postgresql/data"
